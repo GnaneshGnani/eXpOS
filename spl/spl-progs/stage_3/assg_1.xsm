@@ -1,0 +1,13 @@
+MOV R0,1
+MOV R1,1
+MOV R2,21
+loop:
+LT R1,R2
+JZ R1,exit
+MOV P1,R0
+OUT
+INR R0
+MOV R1,R0
+JMP loop
+exit:
+HALT

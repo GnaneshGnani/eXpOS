@@ -1,0 +1,17 @@
+//breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+backup;
+
+alias CurrentProcess R0;
+alias CurrentPID R1;
+
+CurrentPID = [SYSTEM_STATUS_TABLE + 1];
+CurrentProcess = PROCESS_TABLE + (CurrentPID * 16);
+[CurrentProcess + 4] = READY;
+
+call MOD_5;
+
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+ireturn;

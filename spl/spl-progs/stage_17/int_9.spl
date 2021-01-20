@@ -1,0 +1,110 @@
+alias UserSP R0;
+alias FileName R1;
+alias Index R2;
+
+UserSP = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 9;
+
+FileName = [([PTBR + (2 * ((UserSP - 4) / 512))] * 512) + ((UserSP - 4) % 512)];
+
+Index = 0;
+R3 = 1;
+
+while(Index < MAX_FILE_NUM)
+do
+	if([INODE_TABLE + (Index * 16)] == -1)
+	then
+		print("File Not Found");
+		[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = -1;
+		ireturn;
+	endif;
+
+	if([INODE_TABLE + (Index * 16)] == 3)
+	then
+		if([INODE_TABLE + (Index * 16) + 1] == FileName)
+		then	
+			R3 = 0;
+			break;
+		endif;
+	endif;
+
+	Index = Index + 1;
+endwhile;
+
+if(R3 == 1)
+then
+	print("File Not Found");
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = -1;
+	ireturn;
+endif;
+
+//Will this work?
+//[[PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512] = 0;
+
+multipush (R0,R1,R2,R3);
+R1 = 3;
+R2 = [SYSTEM_STATUS_TABLE + 1];
+call MOD_1;
+multipop (R0,R1,R2,R3);
+
+[MEMORY_FREE_LIST + [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11]] = 1;
+[SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] - 1;
+
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+
+//[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 1] = [SYSTEM_STATUS_TABLE + 1];
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = RUNNING;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 7] = Index;
+
+PTBR = PAGE_TABLE_BASE + (20 * [SYSTEM_STATUS_TABLE + 1]);
+[PTBR + 0] = 63;
+[PTBR + 1] = "0100";
+[PTBR + 2] = 64;
+[PTBR + 3] = "0100";
+
+R3 = 0;
+while(R3 < 2)
+do
+	multipush (R0,R1,R2,R3);
+	R1 = 1;
+	call MOD_2;
+	[PTBR + 4 + (2 * R3)] = R0;
+	[PTBR + 5 + (2 * R3)] = "0110";
+	multipop (R0,R1,R2,R3);
+	R3 = R3 + 1;
+endwhile;
+
+R3 = 0;
+while(R3 < 2)
+do
+	multipush (R0,R1,R2,R3);
+	R1 = 1;
+	call MOD_2;
+	[PTBR + 16 + (2 * R3)] = R0;
+	[PTBR + 17 + (2 * R3)] = "0110";
+	multipop (R0,R1,R2,R3);
+	R3 = R3 + 1;
+endwhile;
+
+R3 = 0;
+while([INODE_TABLE + (Index * 16) + 8 + R3] != -1)
+do
+	multipush (R0,R1,R2,R3);
+	R1 = 1;
+	call MOD_2;
+	[PTBR + 8 + (2 * R3)] = R0;
+	[PTBR + 9 + (2 * R3)] = "0100";
+	loadi(R0,[INODE_TABLE + (Index * 16) + 8 + R3]);
+	multipop (R0,R1,R2,R3);
+	R3 = R3 + 1;
+	if(R3 == 4)
+	then
+		break;
+	endif;
+endwhile;
+
+SP = 8 * 512;
+[[PTBR + 16] * 512] = [[PTBR + 8] * 512 + 1];
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+ireturn;

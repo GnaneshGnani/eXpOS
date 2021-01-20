@@ -1,0 +1,49 @@
+decl
+	int arr[50];
+enddecl
+int main()
+{
+	decl 
+   		int n,i,j,temp; 
+	enddecl
+ 	begin
+ 		i = 0;
+ 		write("Enter size");
+  		read(n);
+
+  		write("Enter elements");
+  		while(i < n) 
+  		do
+    		read(arr[i]);
+    		i = i + 1;
+  		endwhile;
+
+  		write("Sorted array");
+  		i = 0;
+  		while(i < n) 
+  		do
+    	j = i;
+    		while(j < n) 
+    		do
+      			if(arr[i] > arr[j]) 
+      			then
+        			temp = arr[i];
+        			arr[i] = arr[j];
+        			arr[j] = temp;
+      			endif;
+      		j = j + 1;
+    		endwhile;
+    	i = i + 1;
+  		endwhile;
+
+  		i = 0;
+  		while(i < n) 
+  		do
+    		write(arr[i]);
+    		i = i + 1;
+  		endwhile;
+  		
+  		return 0;
+  	end
+}
+

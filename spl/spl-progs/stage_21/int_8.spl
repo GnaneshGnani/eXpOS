@@ -1,0 +1,156 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 8;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+
+
+alias UserSP R4;
+
+UserSP = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+
+R1 = 1;
+call MOD_1;
+
+alias ChildPID R0;
+alias ParentPID R1;
+alias ChildProcessTable R10;
+alias ParentProcessTable R11;
+alias ChildPageTable R12;
+alias ParentPageTable R13;
+
+ParentPID = [SYSTEM_STATUS_TABLE + 1];
+
+ChildProcessTable = PROCESS_TABLE + (ChildPID * 16);
+ParentProcessTable = PROCESS_TABLE + (ParentPID * 16);
+
+ChildPageTable = PAGE_TABLE_BASE + (ChildPID * 20);
+ParentPageTable = PAGE_TABLE_BASE + (ParentPID * 20);
+
+//PTBR = PAGE_TABLE_BASE + (ChildPID * 20);
+
+if(ChildPID == -1)
+then
+	[([ChildPageTable + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = -1;
+	[ParentProcessTable + 9] = 0;
+	SP = UserSP;
+	ireturn;
+endif;
+
+if([ParentPageTable + 4] == -1)
+then
+	R3 = 0;
+	while(R3 < 2)
+	do
+		multipush (R0,R1,R2,R3,R4);
+		R1 = 1;
+		call MOD_2;
+		[ParentPageTable + 4 + (R3 * 2)] = R0;
+		[ParentPageTable + 5 + (R3 * 2)] = "0110";
+		multipop (R0,R1,R2,R3,R4);
+
+		R3 = R3 + 1;
+	endwhile;
+endif;
+
+R3 = 0;
+while(R3 < 2)
+do
+	multipush (R0,R1,R2,R3,R4);
+	R1 = 1;
+	call MOD_2;
+	[ChildPageTable + 16 + (R3 * 2)] = R0;
+	[ChildPageTable + 17 + (R3 * 2)] = [ParentPageTable + 17 + (R3 * 2)];
+	multipop (R0,R1,R2,R3,R4);
+
+	R3 = R3 + 1;
+endwhile;
+
+R3 = R0;
+multipush (R0,R1,R2,R3,R4);
+R1 = 1;
+call MOD_2;
+[PROCESS_TABLE + (R3 * 16) + 11] = R0;
+multipop (R0,R1,R2,R3,R4);
+
+[ChildProcessTable + 3] = [ParentProcessTable + 3];
+[ChildProcessTable + 6] = [ParentProcessTable + 6];
+[ChildProcessTable + 7] = [ParentProcessTable + 7];
+[ChildProcessTable + 10] = [ParentProcessTable + 10];
+[ChildProcessTable + 13] = [ParentProcessTable + 13];
+
+[ChildProcessTable + 0] = 0;
+[ChildProcessTable + 2] = ParentPID;
+[ChildProcessTable + 4] = CREATED;
+[ChildProcessTable + 9] = 0;
+[ChildProcessTable + 12] = 0;
+
+R3 = 496;
+R5 = [ChildProcessTable + 11];
+R6 = [ParentProcessTable + 11];
+while(R3 < 512)
+do
+	[(R5 * 512) + R3] = [(R6 * 512) + R3];
+	R3 = R3 + 1;
+endwhile;
+
+//R3 = 0;
+R3 = 2;
+R5 = DISK_MAP_TABLE + (ChildPID * 10);
+R6 = DISK_MAP_TABLE + (ParentPID * 10);
+while(R3 < 8)
+do
+	[R5 + R3] = [R6 + R3];
+	R3 = R3 + 1;
+endwhile;
+
+[R5 + 8] = -1;
+[R5 + 9] = -1;
+
+R3 = 0;
+R5 = PAGE_TABLE_BASE + (ParentPID * 20);
+while(R3 < 8)
+do
+	if([PAGE_TABLE_BASE + (ParentPID * 20) + (R3 * 2)] != -1)
+	then
+		[ChildPageTable + (R3 * 2)] = [ParentPageTable + (R3 * 2)];
+		[ChildPageTable + (R3 * 2) + 1] = [ParentPageTable + (R3 * 2) + 1];
+
+		[MEMORY_FREE_LIST + [ChildPageTable + (R3 * 2)]] = [MEMORY_FREE_LIST + [ChildPageTable + (R3 * 2)]] + 1;
+	else
+		[ChildPageTable + (R3 * 2)] = -1;
+		[ChildPageTable + (R3 * 2) + 1] = "0000";
+	endif;
+
+	R3 = R3 + 1;
+endwhile;
+
+R2 = [ChildPageTable + 16] * 512;
+R3 = [ParentPageTable + 16] * 512;
+R5 = 0;
+
+while(R5 < 512)
+do
+	[R2 + R5] = [R3 + R5];
+	R5 = R5 + 1;	
+endwhile;
+
+R2 = [ChildPageTable + 18] * 512;
+R3 = [ParentPageTable + 18] * 512;
+R5 = 0;
+
+while(R5 < 512)
+do
+	[R2 + R5] = [R3 + R5];
+	R5 = R5 + 1;	
+endwhile;
+
+[[ChildProcessTable + 11] * 512] = BP;
+//[ChildProcessTable + 12] = 1;
+
+[([ChildPageTable + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = 0;
+[([ParentPageTable + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = ChildPID;
+
+[ParentProcessTable + 9] = 0;
+SP = UserSP;
+
+//breakpoint;
+ireturn;

@@ -1,0 +1,86 @@
+breakpoint;
+
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = -1;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1; 
+backup;
+multipush (EIP);
+
+if([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] == ((PTLR * 512) - 1))
+then
+	print("Stack Full");
+	R1 = 3;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_1;
+
+	call MOD_5;
+endif;
+
+if(EC != 0)
+then
+	if(EC == 1)
+	then 
+		print("EC value is 1");
+		print("Illegal Inst.");
+	endif;
+
+	if(EC == 2)
+	then 
+		print("EC value is 2");
+		print("Memory Access");
+	endif;
+
+	if(EC == 3)
+	then 
+		print("EC value is 3");
+		print("Arthmetic Ex.");
+	endif;
+
+	print(EIP);
+	breakpoint;
+	
+	R1 = 3;
+	R2 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_1;
+
+	call MOD_5;
+
+endif;
+
+if(EPN < 4)
+then
+	R2 = 0;
+	while(R2 < 2)
+	do
+		multipush (R0,R1,R2);
+		R1 = 1;
+		call MOD_2;
+
+		[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 4 + (2 * R2)] = R0;
+		[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + 5 + (2 * R2)] = "1110";
+		multipop (R0,R1,R2);
+		R2 = R2 + 1;
+	endwhile;
+else
+
+	alias BlockNum R2;
+	BlockNum = [DISK_MAP_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 10) + EPN];
+	multipush (R0,R1,R2);
+	R1 = 5;
+	R2 = BlockNum;
+	call MOD_2;
+
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + (2 * EPN)] = R0;
+	[PAGE_TABLE_BASE + ([SYSTEM_STATUS_TABLE + 1] * 20) + (2 * EPN) + 1] = "1100";
+	multipop (R0,R1,R2);
+
+endif;
+
+multipop (EIP);
+restore;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+
+SP = SP + 1;
+[[PTBR + (2 * (SP / 512))] * 512 + (SP % 512)] = EIP;
+ireturn;

@@ -1,0 +1,49 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 21;
+
+alias UserSP R10;
+alias SystemCallNo R11;
+alias PID R12;
+alias ProcessTable R13;
+
+UserSP = SP;
+SystemCallNo = [([PTBR + (2 * ((UserSP - 5) / 512))] * 512) + ((UserSP - 5) % 512)];
+PID = [SYSTEM_STATUS_TABLE + 1];
+ProcessTable = PROCESS_TABLE + (PID * 16);
+
+
+SP = [ProcessTable + 11] * 512 - 1;
+
+if(([ProcessTable + 1] != 1) || ([ProcessTable + 3] != 1))
+then
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = 0;
+	[ProcessTable + 9] = 0;
+	SP = [ProcessTable + 13]; 
+	ireturn;
+endif;
+
+R1 = 1;
+R2 = PID;
+R3 = 59;
+R4 = 3;
+call MOD_4;
+
+R1 = 1;
+R2 = PID;
+R3 = 60;
+R4 = 4;
+call MOD_4;
+
+R1 = 1;
+R2 = PID;
+R3 = 61;
+R4 = 2;
+call MOD_4;
+
+R1 = 1;
+R2 = PID;
+R3 = 62;
+R4 = 5;
+call MOD_4;
+
+halt;

@@ -1,0 +1,135 @@
+alias UserSP R0;
+
+alias FileDescriptor R4;
+alias Return R5;
+alias Word R6;
+
+alias ProcessTable R12;
+
+UserSP = SP;
+ProcessTable = PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16);
+
+[ProcessTable + 9] = 7;
+[ProcessTable + 13] = UserSP;
+SP = ([ProcessTable + 11] * 512) - 1;
+
+FileDescriptor = [([PTBR + (2 * ((UserSP - 4)/ 512))] * 512) + (UserSP - 4) % 512];
+Return = (([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512));
+Word = [([PTBR + (2 * ((UserSP - 3) / 512))] * 512) + ((UserSP - 3) % 512)];
+
+if (FileDescriptor == -1) 
+then
+	multipush(R0,R4,R5,R6,R12);
+	R1 = 4;					
+	R2 = [SYSTEM_STATUS_TABLE + 1];		
+	R3 = [([PTBR + (2 * ((UserSP - 3) / 512))] * 512) + ((UserSP - 3) % 512)];			
+	call MOD_4;
+	multipop (R0,R4,R5,R6,R12);
+
+else
+	if (FileDescriptor < 0 || FileDescriptor > 7) 
+	then
+		[Return] = -1;
+		[ProcessTable + 9] = 0;
+		SP = UserSP;
+		ireturn;
+
+	endif;
+		
+	alias ResourceTable R7;
+	ResourceTable = ([ProcessTable + 11] * 512) + 496;
+
+	if ([ResourceTable + (FileDescriptor * 2)] != FILE) 
+	then
+		[Return] = -1;
+		[ProcessTable + 9] = 0;
+		SP = UserSP;
+		ireturn;
+	endif;
+
+	alias FileTableIndex R8;
+	alias InodeTableIndex R9;
+	alias lseek R10;
+
+	FileTableIndex = [ResourceTable + (FileDescriptor * 2) + 1];
+	InodeTableIndex = [OPEN_FILE_TABLE + (FileTableIndex * 4)];
+
+	multipush (R0,R4,R5,R6,R7,R8,R9,R12);
+	R1 = 4;
+	R2 = InodeTableIndex;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;										
+			
+	R10 = R0;
+	multipop (R0,R4,R5,R6,R7,R8,R9,R12);
+			
+	if (R10 != 0) 
+	then
+		[Return] = -1;
+		[ProcessTable + 9] = 0;
+		SP = UserSP;
+	endif;	
+	
+	lseek = [OPEN_FILE_TABLE + 4 * FileTableIndex + 2];
+		
+	if ([OPEN_FILE_TABLE + 4 * FileTableIndex] == INODE_ROOT) 
+	then
+		if (lseek == 480) 
+		then
+			multipush (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+			R1 = 5;
+			R2 = InodeTableIndex;
+			R3 = [SYSTEM_STATUS_TABLE + 1];
+			call MOD_0;										
+			multipop (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+
+			[Return] = -2;
+			[ProcessTable + 9] = 0;
+			SP = UserSP;
+			ireturn;
+
+		else
+			[Word] = [ROOT_FILE + lseek];
+			[OPEN_FILE_TABLE + (FileTableIndex * 4) + 2] = [OPEN_FILE_TABLE + (FileTableIndex * 4) + 2] + 1;
+		endif;
+	
+	else
+		if (lseek == [INODE_TABLE + (InodeTableIndex * 16) + 2]) 
+		then
+			multipush (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+			R1 = 5;
+			R2 = InodeTableIndex;
+			R3 = [SYSTEM_STATUS_TABLE + 1];
+			call MOD_0;										
+			multipop (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+
+			[Return] = -2;
+			[ProcessTable + 9] = 0;
+			SP = UserSP;
+			ireturn;
+		endif;
+			
+		multipush (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+		R1 = 2;
+		R2 = [INODE_TABLE + (InodeTableIndex * 16) + 8 + (lseek / 512)];
+		R3 = lseek % 512; 
+		R4 = Word;
+		call MOD_3;
+		multipop (R0,R4,R5,R6,R7,R8,R9,R10,R12);
+				
+		[OPEN_FILE_TABLE + (FileTableIndex * 4) + 2] = [OPEN_FILE_TABLE + (FileTableIndex * 4) + 2] + 1;
+	endif;
+	
+	multipush (R0,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+	R1 = 5;
+	R2 = InodeTableIndex;
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;							
+	multipop (R0,R4,R5,R6,R7,R8,R9,R10,R11,R12);
+		
+endif;
+
+[Return] = 0;
+[ProcessTable + 9] = 0;
+SP = UserSP;
+ireturn;

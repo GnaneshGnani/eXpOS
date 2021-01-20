@@ -1,0 +1,14 @@
+int main()
+{
+	decl
+		int temp;
+		string s;
+	enddecl
+	begin
+		read(s);
+		temp = exposcall("Delete",s);
+		write(temp);
+		temp = exposcall("Exit");
+		return 0;
+	end
+}

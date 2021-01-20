@@ -1,0 +1,12 @@
+int main()
+{
+	decl
+		str name;
+	enddecl
+	begin
+		name = "gnanesh";
+		write(name);
+		write("hello world!");
+		return 0;
+	end
+}

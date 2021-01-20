@@ -1,0 +1,4 @@
+MOV R0,"Hello World!"
+MOV P1,R0
+OUT
+HALT

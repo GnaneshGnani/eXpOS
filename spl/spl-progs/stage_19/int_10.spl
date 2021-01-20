@@ -1,0 +1,28 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = TERMINATED;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 10;
+
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) +11] * 512) - 1;
+
+alias PID R0;
+PID = [SYSTEM_STATUS_TABLE + 1] + 1;
+
+while(PID != ([SYSTEM_STATUS_TABLE + 1]))
+do
+	if(([PROCESS_TABLE + (PID * 16) + 4]) == READY) 
+	then
+		call MOD_5;
+	endif;
+
+	if(([PROCESS_TABLE + (PID * 16) + 4]) == CREATED)
+	then
+		call MOD_5;
+	endif;
+	
+	PID = PID + 1;
+
+	if(PID == 16)
+	then
+		 PID = 1;
+	endif;
+endwhile;
+halt;

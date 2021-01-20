@@ -1,0 +1,44 @@
+alias FunctionNum R1;
+alias CurrentPID R2;
+//breakpoint;
+if(FunctionNum == 3)
+then 
+	multipush (R0,R1,R2,R3);
+	R1 = 8;
+	R2 = CurrentPID;
+	call MOD_0;
+	multipop (R0,R1,R2,R3);
+	print(R3);
+
+	multipush (R0,R1,R2,R3);
+	R1 = 9;
+	R2 = CurrentPID;
+	call MOD_0;
+	multipop (R0,R1,R2,R3);
+	return;
+endif;
+
+if(FunctionNum == 4)
+then
+	multipush (R0,R1,R2,R3);
+	R1 = 8;
+	R2 = CurrentPID;
+	call MOD_0;
+	multipop (R0,R1,R2,R3);
+	breakpoint;
+	read;
+
+	[PROCESS_TABLE + (CurrentPID * 16) + 4] = WAIT_TERMINAL;
+	//breakpoint;
+
+	multipush (R0,R1,R2,R3);
+	call MOD_5;
+	multipop (R0,R1,R2,R3);
+	//breakpoint;
+	
+	[([PTBR + (2 * (R3 / 512))] * 512) + (R3 % 512)] = [PROCESS_TABLE + (CurrentPID * 16) + 8];
+	breakpoint;
+	return;
+endif;
+
+return;

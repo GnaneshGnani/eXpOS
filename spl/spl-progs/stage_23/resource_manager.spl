@@ -1,0 +1,149 @@
+alias FunctionNum R1;
+//breakpoint;
+
+if(FunctionNum == 3)
+then
+	alias CurrentPID R2;
+	while([DISK_STATUS_TABLE] == 1)
+	do
+		[PROCESS_TABLE + (CurrentPID * 16) + 4] = WAIT_DISK;
+		backup;
+		call MOD_5;
+		restore;
+	endwhile;
+
+	[DISK_STATUS_TABLE] = 1;
+	[DISK_STATUS_TABLE + 4] = CurrentPID;
+	return;
+endif;
+
+if(FunctionNum == 4)
+then
+	alias InodeIndex R2;
+	alias CurrentPID R3;
+
+	while([FILE_STATUS_TABLE + (InodeIndex * 4)] != -1)
+	do
+		[PROCESS_TABLE + (CurrentPID * 16) + 4] = WAIT_FILE;
+		[PROCESS_TABLE + (CurrentPID * 16) + 5] = InodeIndex;
+		backup;
+		call MOD_5;
+		restore;
+	endwhile;
+
+	if([INODE_TABLE + (InodeIndex * 4) + 1] == -1)
+	then
+		R0 = -1;
+		return;
+	endif;
+
+	[FILE_STATUS_TABLE + (InodeIndex * 4)] = CurrentPID;
+	R0 = 0;
+
+	return;
+endif;
+
+if(FunctionNum == 5)
+then
+	alias InodeIndex R2;
+	alias CurrentPID R3;
+	
+	if([FILE_STATUS_TABLE + (InodeIndex * 4)] == CurrentPID) 
+	then
+		[FILE_STATUS_TABLE + (InodeIndex * 4)] = -1;
+
+		R4 = 1;
+		while(R4 < 16) 
+		do
+			if(([PROCESS_TABLE + (R4 * 16) + 4] == WAIT_FILE) && ([PROCESS_TABLE + (R4 * 16) + 5] == InodeIndex)) 
+			then
+				[PROCESS_TABLE + (R4 * 16) + 4] = READY;
+			endif;
+			R4 = R4 + 1;
+		endwhile;
+		R0 = 0;
+		return;
+	
+	else
+		R0 = -1;
+		return;
+	endif;
+endif;
+
+if(FunctionNum == 6) 
+then
+	alias CurrentPID R2;
+	R0 = -1;
+	R3 = 0;	
+	while(R3 < MAX_SEM_COUNT)
+	do
+		if(([SEMAPHORE_TABLE + (R3 * 4) + 1]) == 0) 
+		then
+			R0 = R3;
+			[SEMAPHORE_TABLE + (R3 * 4)] = -1;
+			[SEMAPHORE_TABLE + (R3 * 4) + 1] = 1;
+			return;
+		endif;
+
+		R3 = R3 + 1;
+	endwhile;
+	return;
+	
+endif;
+
+if(FunctionNum == 7) 
+then
+	alias SEMID R2;
+	alias CurrentPID R3;
+	
+	if([SEMAPHORE_TABLE + (4 * SEMID)] == CurrentPID) 
+	then
+		[SEMAPHORE_TABLE + (4 * SEMID)] = -1;
+
+		R4 = 0;
+		while(R4 < 16) 
+		do
+			if(([PROCESS_TABLE + (R4 * 16) + 4] == WAIT_SEMAPHORE) && ([PROCESS_TABLE + (R4 * 16) + 5] == SEMID)) 
+			then
+				[PROCESS_TABLE + (R4 * 16) + 4] = READY;
+			endif;
+			R4 = R4 + 1;
+		endwhile;
+	endif;
+
+	[SEMAPHORE_TABLE + (4 * SEMID) + 1] = [SEMAPHORE_TABLE + (4 * SEMID) + 1] - 1;
+	return;
+endif;
+
+if(FunctionNum == 8)
+then
+	alias CurrentPID R2;
+	while([TERMINAL_STATUS_TABLE] == 1)
+	do
+		[PROCESS_TABLE + (CurrentPID * 16) + 4] = WAIT_TERMINAL;
+		backup;
+		call MOD_5;
+		restore;
+	endwhile;
+
+	[TERMINAL_STATUS_TABLE] = 1;
+	[TERMINAL_STATUS_TABLE + 1] = CurrentPID;
+	//breakpoint;
+	return;
+endif;
+
+if(FunctionNum == 9)
+then
+	alias CurrentPID R2;
+	if(CurrentPID != ([TERMINAL_STATUS_TABLE + 1]))
+	then
+		R0 = -1;
+		return;
+	endif;
+
+	[TERMINAL_STATUS_TABLE] = 0;
+	[PROCESS_TABLE + (CurrentPID * 16) + 4] = READY;
+	R0 = 0;
+	//breakpoint;
+	return;
+endif;

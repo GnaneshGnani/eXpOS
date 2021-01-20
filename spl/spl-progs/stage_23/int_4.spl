@@ -1,0 +1,217 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+
+alias UserSP R10;
+alias SystemCallNo R11;
+alias PID R12;
+alias ProcessTable R13;
+alias Return R14;
+
+UserSP = SP;
+SystemCallNo = [([PTBR + (2 * ((UserSP - 5) / 512))] * 512) + ((UserSP - 5) % 512)];
+PID = [SYSTEM_STATUS_TABLE + 1];
+ProcessTable = PROCESS_TABLE + (PID * 16);
+Return = ([PTBR + (2 * ((UserSP - 5) / 512))] * 512) + ((UserSP - 5) % 512);
+
+SP = [ProcessTable + 11] * 512 - 1;
+
+if(SystemCallNo == 1)
+then
+	[ProcessTable + 9] = 1;
+	
+	alias FileName R6;
+	alias Permission R7;
+	alias InodeIndex R8;
+	
+	FileName = [([PTBR + (2 * ((UserSP - 4) / 512))] * 512) + ((UserSP - 4) % 512)];
+	Permission = [([PTBR + (2 * ((UserSP - 3) / 512))] * 512) + ((UserSP - 3) % 512)];
+
+	R4 = 1;
+	R5 = INODE_TABLE + 16; 
+	while(R4 < 60)
+	do
+		if([R5 + 1] == FileName)
+		then
+			[Return] = 0;
+			[ProcessTable + 9] = 0;
+			SP = [ProcessTable + 13]; 
+			ireturn;
+		endif;
+		
+		R4 = R4 + 1;
+		R5 = R5 + 16;
+	endwhile;
+
+	R4 = 1;
+	R5 = INODE_TABLE + 16;
+	while(R4 < 60)
+	do
+		if([R5 + 1] == -1)
+		then
+			break;
+		endif;
+		R4 = R4 + 1;
+		R5 = R5 + 16;
+	endwhile;
+
+	if(R4 == 60)
+	then
+		[Return] = -1;
+		[ProcessTable + 9] = 0;
+		SP = [ProcessTable + 13]; 
+		ireturn;
+	endif;
+
+	InodeIndex = R4;
+	alias InodeTable R9;
+
+	InodeTable = INODE_TABLE + (InodeIndex * 16);
+	[InodeTable + 0] = DATA;
+	[InodeTable + 1] = FileName;
+	[InodeTable + 2] = 0;
+	[InodeTable + 3] = [ProcessTable + 3];
+	[InodeTable + 4] = Permission;
+
+	R5 = 8;
+	while(R5 < 12)
+	do
+		[InodeTable + R5] = -1;
+		R5 = R5 + 1;
+	endwhile;
+
+	alias RootFile R9;
+	RootFile = ROOT_FILE + (InodeIndex * 8);
+
+	[RootFile + 0] = FileName;
+	[RootFile + 1] = 0;
+	[RootFile + 2] = DATA;
+	[RootFile + 3] = [USER_TABLE + ([ProcessTable + 3] * 2)];
+	[RootFile + 4] = Permission;
+
+	[ProcessTable + 9] = 0;
+	[Return] = 0;
+	SP = [ProcessTable + 13]; 
+	ireturn;
+endif;
+
+if(SystemCallNo == 4)
+then 
+	[ProcessTable + 9] = 4;
+
+	alias FileName R6;
+	alias InodeIndex R7;
+
+	FileName = [([PTBR + (2 * ((UserSP - 4) / 512))] * 512) + ((UserSP - 4) % 512)];
+
+	R4 = 1;
+	R5 = INODE_TABLE + 16;
+	while(R4 < 60)
+	do
+		if([R5 + 1] == FileName)
+		then
+			break;
+		endif;
+
+		R4 = R4 + 1;
+		R5 = R5 + 16;
+	endwhile;
+
+	if(R4 == 60)
+	then
+		[ProcessTable + 9] = 0;
+		[Return] = 0;
+		SP = [ProcessTable + 13]; 
+		ireturn;
+	endif;
+
+	if([R5] != DATA)
+	then
+		[ProcessTable + 9] = 0;
+		[Return] = -1;
+		SP = [ProcessTable + 13]; 
+		ireturn;
+	endif;
+
+	if([R5 + 4] == 0)
+	then
+		if(([R5 + 3] != [ProcessTable + 3]) && ([ProcessTable + 3] != 1))
+		then
+			[ProcessTable + 9] = 0;
+			[Return] = -1;
+			SP = [ProcessTable + 13]; 
+			ireturn;
+		endif;
+	endif;
+
+	InodeIndex = R4;
+
+	multipush (R1,R2,R3);
+	R1 = 4;
+	R2 = InodeIndex;
+	R3 = PID;
+	call MOD_0;
+	multipop (R1,R2,R3);
+
+	if([FILE_STATUS_TABLE + (InodeIndex * 4) + 1] != -1)
+	then
+		multipush (R0,R1,R2,R3,R4);
+		R1 = 5;
+		R2 = InodeIndex;
+		R3 = PID;
+		call MOD_0;
+		multipop (R0,R1,R2,R3,R4);
+
+		[ProcessTable + 9] = 0;
+		[Return] = -2;
+		SP = [ProcessTable + 13]; 
+		ireturn;
+	endif;
+
+	R4 = 8;
+	alias InodeTable R8;
+	InodeTable = INODE_TABLE + (InodeIndex * 16);
+	while(R4 < 12)
+	do
+		R5 = [InodeTable + R4];
+		if((R5 != -1) && ([BUFFER_TABLE + ((R5 % 4) * 4)] == R5) && ([BUFFER_TABLE + ((R5 % 4) * 4) + 1] == 1))
+		then
+			[BUFFER_TABLE + ((R5 % 4) * 4) + 1] = 0;
+		endif;
+
+		multipush (R0,R1,R2,R3,R4);
+		R1 = 4;
+		R2 = R5;
+		R3 = PID;
+		call MOD_2;
+		multipop (R0,R1,R2,R3,R4);
+
+		R4 = R4 + 1;
+	endwhile;
+
+	R4 = 0;
+	while(R4 < 16)
+	do
+		[InodeTable + R4] = -1;
+		R4 = R4 + 1;
+	endwhile;
+
+	R4 = 0;
+	R5 = ROOT_FILE + (InodeIndex * 8);
+	while(R4 < 8)
+	do
+		[R5 + R4] = -1;
+		R4 = R4 + 1;
+	endwhile;
+
+	multipush (R0,R1,R2,R3,R4);
+	R1 = 5;
+	R2 = InodeIndex;
+	R3 = PID;
+	call MOD_0;
+	multipop (R0,R1,R2,R3,R4);
+
+	[ProcessTable + 9] = 0;
+	SP = [ProcessTable + 13]; 
+	ireturn;
+endif;
+
+ireturn;

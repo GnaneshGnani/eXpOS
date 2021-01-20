@@ -1,0 +1,71 @@
+breakpoint;
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+backup;
+
+alias CurrentProcess R0;
+alias CurrentPID R1;
+alias PID R2;
+alias NewProcess R3;
+
+CurrentPID = [SYSTEM_STATUS_TABLE + 1];
+CurrentProcess = PROCESS_TABLE + (CurrentPID * 16);
+
+
+inline "PUSH BP";
+
+[CurrentProcess + 4] = READY;
+[CurrentProcess + 12] = SP % 512;
+[CurrentProcess + 14] = PTBR;
+[CurrentProcess + 15] = PTLR;
+
+PID = CurrentPID + 1;
+
+while(PID != CurrentPID)
+do
+	if([PROCESS_TABLE + (PID * 16) + 4] == READY)
+	then 
+		break;
+	endif;
+
+	if([PROCESS_TABLE + (PID * 16) + 4] == CREATED)
+	then 
+		break;
+	endif;
+
+	PID = PID + 1;
+
+	if(PID == 16)
+	then
+		PID = 1;
+	endif;
+
+endwhile;
+
+if(PID == CurrentPID)
+then 
+	PID = 0;
+endif;
+
+[SYSTEM_STATUS_TABLE + 1] = PID;
+NewProcess = PROCESS_TABLE + (PID * 16);
+SP = ([NewProcess + 11] * 512) + [NewProcess + 12];
+PTBR = [NewProcess + 14];
+PTLR = [NewProcess + 15];
+
+if([NewProcess + 4] == CREATED)
+then
+	[NewProcess + 4] = RUNNING;
+	[NewProcess + 5] = 0;
+	SP = [NewProcess + 13];
+	breakpoint;
+	ireturn;
+endif;
+
+[NewProcess + 4] = RUNNING;
+inline "POP BP";
+
+restore;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+breakpoint;
+ireturn;

@@ -1,0 +1,50 @@
+inline "PUSH BP";
+
+alias CurrentPID R0;
+alias CurrentProcess R1;
+alias PID R2;
+alias NewProcess R3;
+
+CurrentPID = [SYSTEM_STATUS_TABLE + 1];
+CurrentProcess = PROCESS_TABLE + (CurrentPID * 16);
+
+[CurrentProcess + 12] = SP % 512;
+[CurrentProcess + 14] = PTBR;
+[CurrentProcess + 15] = PTLR;
+
+PID = CurrentPID + 1;
+//while((([PROCESS_TABLE + (PID * 16) + 4]) != READY) || (([PROCESS_TABLE + (PID * 16) + 4]) != CREATED) || (PID != CurrentPID))
+while(PID != CurrentPID)
+do
+	if(([PROCESS_TABLE + (PID * 16) + 4] == READY) || [PROCESS_TABLE + (PID * 16) + 4] == CREATED)
+	then 
+		break;
+	endif;
+
+	PID = (PID + 1) % 16;
+endwhile;
+
+if(PID == CurrentPID)
+then 
+	PID = 0;
+endif;
+
+[SYSTEM_STATUS_TABLE + 1] = PID;
+NewProcess = PROCESS_TABLE + (PID * 16);
+SP = ([NewProcess + 11] * 512) + [NewProcess + 12];
+PTBR = [NewProcess + 14];
+PTLR = [NewProcess + 15];
+
+if([NewProcess + 4] == CREATED)
+then
+	[NewProcess + 4] = RUNNING;
+	[NewProcess + 5] = 0;
+	//breakpoint;
+	SP = [NewProcess + 13];
+	ireturn;
+endif;
+
+//breakpoint;
+[NewProcess + 4] = RUNNING;
+inline "POP BP";
+return;

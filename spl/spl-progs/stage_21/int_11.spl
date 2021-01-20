@@ -1,0 +1,79 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+
+alias UserSP R0;
+alias SystemCallNo R1;
+
+UserSP = SP;
+SystemCallNo = [([PTBR + (2 * ((SP - 5) / 512))] * 512) + ((SP - 5) % 512)];
+
+SP = ([PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512) - 1;
+
+if(SystemCallNo == 11)
+then
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 1];
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+if(SystemCallNo == 12)
+then
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 2];
+	SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+	ireturn;
+endif;
+
+if(SystemCallNo == 13)
+then
+	alias PID R2;
+	alias CurrentPID R3;
+
+	CurrentPID = [SYSTEM_STATUS_TABLE + 1];
+	[PROCESS_TABLE + (CurrentPID * 16) + 9] = 13;
+	PID = [([PTBR + (2 * ((UserSP - 4) / 512))] * 512) + ((UserSP - 4) % 512)];
+	
+	if((PID == CurrentPID) || (PID >= 16) || (PID <= 0) || ([PROCESS_TABLE + (PID * 16) + 4] == TERMINATED))
+	then
+		[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = -1;
+		SP = [PROCESS_TABLE + (CurrentPID * 16) + 13];
+		ireturn;
+	endif;
+
+	[PROCESS_TABLE + (CurrentPID * 16) + 4] = WAIT_PROCESS;
+	[PROCESS_TABLE + (CurrentPID * 16) + 5] = PID;
+
+	multipush (R0,R1,R2,R3);
+	call MOD_5;
+	multipop (R0,R1,R2,R3);
+
+	[PROCESS_TABLE + (CurrentPID * 16) + 9] = 0;
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = 0;
+	SP = [PROCESS_TABLE + (CurrentPID * 16) + 13];
+	ireturn;
+endif;
+
+if(SystemCallNo == 14)
+then
+	alias CurrentPID R2;
+	CurrentPID = [SYSTEM_STATUS_TABLE + 1];
+
+	[PROCESS_TABLE + (CurrentPID * 16) + 9] = 13;
+
+	R3 = 1;
+	R4 = PROCESS_TABLE + 16;
+	while(R3 < 16)
+	do
+		if(([R4 + 4] == WAIT_PROCESS) && ([R4 + 5] == CurrentPID))
+		then
+			[R4 + 4] = READY;
+		endif;
+		R3 = R3 + 1;
+		R4 = R4 + 16;
+	endwhile;
+
+	[PROCESS_TABLE + (CurrentPID * 16) + 9] = 0;
+	[([PTBR + (2 * ((UserSP - 1) / 512))] * 512) + ((UserSP - 1) % 512)] = 0;
+	SP = [PROCESS_TABLE + (CurrentPID * 16) + 13];
+	ireturn;
+endif;
+
+ireturn;
